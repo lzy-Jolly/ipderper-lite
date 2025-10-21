@@ -1,12 +1,13 @@
 #!/bin/sh
 # this is ipderper.sh
 
-VERSION="1.6.0"
+VERSION="1.6.1"
 WORKDIR="/etc/ipderperd"
 CONFIG_FILE="$WORKDIR/config.json"
 CONFIG_TEMPLATE="$WORKDIR/config.jsonc"
 DERPER_BIN="$WORKDIR/derper"
 BUILD_CERT="$WORKDIR/build_cert.sh"
+
 
 # 颜色定义
 GREEN="\e[32m"; YELLOW="\e[33m"; RED="\e[31m"; BLUE="\e[36m"; RESET="\e[0m"
@@ -24,18 +25,68 @@ if [ $# -ge 1 ]; then
 fi
 
 #--------------------------------------------
+# 系统类型检测
+#--------------------------------------------
+detect_os() {
+    if [ -f /etc/os-release ]; then
+        OS_TYPE=$(awk -F= '/^ID=/{print $2}' /etc/os-release | tr -d '"' | tr '[:upper:]' '[:lower:]')
+    else
+        OS_TYPE="unknown"
+    fi
+    
+    # 调试信息，显示检测到的系统类型
+    echo -e "${BLUE}检测到系统: $OS_TYPE${RESET}"
+    
+    # 支持的系统列表
+    SUPPORTED_OS="alpine debian ubuntu"
+    
+    # 检查是否支持当前系统
+    case "$SUPPORTED_OS" in
+        *"$OS_TYPE"*) 
+            echo -e "${GREEN}✅ 系统类型已识别: $OS_TYPE${RESET}"
+            ;;
+        *)
+            echo -e "${YELLOW}⚠️  未知系统类型: $OS_TYPE，使用默认启动方式${RESET}"
+            echo -e "${BLUE}项目支持系统：Alpine、Debian、Ubuntu${RESET}"
+            ;;
+    esac
+}
+#--------------------------------------------
+# 确保日志目录存在
+#--------------------------------------------
+ensure_log_directory() {
+    local log_dir=$(dirname "$DERP_LOG")
+    if [ ! -d "$log_dir" ]; then
+        mkdir -p "$log_dir" || {
+            echo -e "${RED}❌ 无法创建日志目录: $log_dir${RESET}"
+            return 1
+        }
+    fi
+    # 确保日志文件存在且可写
+    touch "$DERP_LOG" 2>/dev/null || {
+        echo -e "${RED}❌ 无法写入日志文件: $DERP_LOG${RESET}"
+        return 1
+    }
+}
+
+
+#--------------------------------------------
 # 状态检测函数
 #--------------------------------------------
 check_status() {
-    # ---- 检查 derper 进程 ----
-    DERPER_PID=$(ps -eo pid,cmd | grep -F "$DERPER_BIN" | grep -v grep | grep -v "ipderper.sh" | awk '{print $1}')
-    if [ -n "$DERPER_PID" ]; then
+    
+    # ---- 检查 derper 状态----
+    local derper_pid=$(check_derper_status)
+    if [ -n "$derper_pid" ]; then
         DERPER_STATUS="已启动"
         COLOR_D=$GREEN
+        DERPER_PID=$derper_pid
     else
         DERPER_STATUS="未启动"
         COLOR_D=$YELLOW
+        DERPER_PID=""
     fi
+    
 
     # ---- 检查 tailscale ----
     if ! command -v tailscale >/dev/null 2>&1; then
@@ -147,11 +198,19 @@ start_or_restart_derper() {
     # 检测系统类型
     detect_os
 
-    mkdir -p "$(dirname "$DERP_LOG")"
+    # 确保日志目录和文件
+    if ! ensure_log_directory; then
+        echo -e "${RED}❌ 日志初始化失败，无法启动 derper${RESET}"
+        return 1
+    fi
+
     stop_derper >/dev/null 2>&1
 
     echo -e "${BLUE}生成证书并启动 derper...${RESET}"
     sh "$BUILD_CERT" "$DERP_HOST" "$DERP_CERTS" "$WORKDIR/san.conf"
+
+    # 记录启动时间
+    echo "=== derper 启动于 $(date) ===" >> "$DERP_LOG"
 
     # 根据系统类型选择启动方式
     case "$OS_TYPE" in
@@ -167,20 +226,8 @@ start_or_restart_derper() {
                 --verify-clients="$DERP_VERIFY_CLIENTS" \
                 >>"$DERP_LOG" 2>&1 < /dev/null &
             ;;
-        debian|ubuntu)
-            echo -e "${BLUE}使用 Debian/Ubuntu 启动方式 (nohup)...${RESET}"
-            nohup "$DERPER_BIN" \
-                --a=":$DERP_ADDR" \
-                --hostname="$DERP_HOST" \
-                --certmode=manual \
-                --certdir="$DERP_CERTS" \
-                --stun="$DERP_STUN" \
-                --http-port="$DERP_HTTP_PORT" \
-                --verify-clients="$DERP_VERIFY_CLIENTS" \
-                >>"$DERP_LOG" 2>&1 &
-            ;;
-        *)
-            echo -e "${YELLOW}未知系统类型，使用默认启动方式 (nohup)...${RESET}"
+        debian|ubuntu|*)
+            echo -e "${BLUE}使用 nohup 启动方式...${RESET}"
             nohup "$DERPER_BIN" \
                 --a=":$DERP_ADDR" \
                 --hostname="$DERP_HOST" \
@@ -193,17 +240,30 @@ start_or_restart_derper() {
             ;;
     esac
 
-    # 等待进程启动
-    sleep 2
+    local start_time=$(date +%s)
+    local timeout=10
     
-    # 检查是否启动成功
-    if pgrep -f "$DERPER_BIN" > /dev/null; then
-        echo -e "${GREEN}✅ derper 已启动，日志: $DERP_LOG${RESET}"
+    # 改进的启动检测
+    while [ $(($(date +%s) - start_time)) -lt $timeout ]; do
+        if pgrep -f "$(basename "$DERPER_BIN")" >/dev/null 2>&1; then
+            local new_pid=$(pgrep -f "$(basename "$DERPER_BIN")")
+            echo -e "${GREEN}✅ derper 已启动 (PID: $new_pid)${RESET}"
+            echo -e "${BLUE}日志文件: $DERP_LOG${RESET}"
         echo -e "${BLUE}使用系统: $OS_TYPE | 启动方式: $(case "$OS_TYPE" in alpine) echo "setsid" ;; *) echo "nohup" ;; esac)${RESET}"
-    else
-        echo -e "${RED}❌ derper 启动失败，请检查日志: $DERP_LOG${RESET}"
+            
+            # 显示最近日志
+            echo -e "${YELLOW}最近日志:${RESET}"
+            tail -n 5 "$DERP_LOG"
+            break
+        fi
+        sleep 1
+    done
+
+    if [ $(($(date +%s) - start_time)) -ge $timeout ]; then
+        echo -e "${RED}❌ derper 启动超时或失败${RESET}"
+        echo -e "${YELLOW}请检查日志: $DERP_LOG${RESET}"
         echo -e "${YELLOW}最近日志内容：${RESET}"
-        tail -n 10 "$DERP_LOG" 2>/dev/null || echo "日志文件不存在"
+        tail -n 20 "$DERP_LOG" 2>/dev/null || echo "日志文件不存在或无法读取"
     fi
 
     # 生成 derpmap 示例文件
@@ -299,27 +359,33 @@ while true; do
     read -r CHOICE
     case "$CHOICE" in
         1) start_or_restart_derper
-           read -n1 -r -p "按任意键返回主菜单..." key
+           printf "按Enter返回主菜单..." 
+           read -r key
            echo
            ;;
         2) stop_derper
-           read -n1 -r -p "按任意键返回主菜单..." key
+           printf "按Enter返回主菜单..." 
+           read -r key
            echo
            ;;
         3) generate_config
-           read -n1 -r -p "按任意键返回主菜单..." key
+           printf "按Enter返回主菜单..."
+           read -r key 
            echo
            ;;
         4) update_script
-           read -n1 -r -p "按任意键返回主菜单..." key
+           printf "按Enter返回主菜单..."
+           read -r key
            echo
            ;;
         5) show_info
-           read -n1 -r -p "按任意键返回主菜单..." key
+           printf "按Enter返回主菜单..."
+           read -r key 
            echo
            ;;
         6) generate_derpmap_example
-            read -n1 -r -p "按任意键返回主菜单..." key
+            printf "按Enter返回主菜单..."
+            read -r key
             echo
             ;;
         0) exit 0 ;;
