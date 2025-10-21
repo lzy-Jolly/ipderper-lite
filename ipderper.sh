@@ -46,11 +46,8 @@ RESET="\e[0m"
 #--------------------------------------------
 
 check_status() {
-    # ------------------------------
     # derper 状态检测
-    # ------------------------------
     if [ -f "$DERPER_BIN" ]; then
-        # 根据系统选择 ps 参数
         OS_TYPE=$(awk -F= '/^ID=/{print $2}' /etc/os-release | tr -d '"')
         if [ "$OS_TYPE" = "alpine" ]; then
             PS_CMD="ps -e"
@@ -58,7 +55,8 @@ check_status() {
             PS_CMD="ps -ef"
         fi
 
-        DERPER_PID=$($PS_CMD | grep "[d]erper" | awk '{print $1}')
+        # 排除当前脚本进程
+        DERPER_PID=$($PS_CMD | grep "[d]erper" | grep -v "[i]pderper.sh" | awk '{print $1}')
         if [ -n "$DERPER_PID" ]; then
             DERPER_STATUS="已启动"
             COLOR_D=$GREEN
