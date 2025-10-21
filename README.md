@@ -16,7 +16,7 @@ https://login.tailscale.com/admin/acls/file
 实在不会，复制原本官网的文件还有新节点的文件，丢给gpt，让添加节点去重id和保留注释
 
 <details>
-<summary>derpmap.json 示例</summary>
+
 ```json
 {
     "derpMap": {
@@ -58,4 +58,4 @@ https://login.tailscale.com/admin/acls/file
 
 }
 ```
-</details> 
+
