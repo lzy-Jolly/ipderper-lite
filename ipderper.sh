@@ -1,7 +1,7 @@
 #!/bin/bash
 # this is ipderper.sh
 
-VERSION="1.2.4"
+VERSION="1.2.5"
 WORKDIR="/etc/ipderperd"
 CONFIG_FILE="$WORKDIR/config.json"
 CONFIG_TEMPLATE="$WORKDIR/config.jsonc"
@@ -68,9 +68,9 @@ check_status() {
     fi
 
     # ---- 输出结果 ----
-    echo -e "DERPER 状态: ${COLOR_D}${DERPER_STATUS}${NC}"
-    echo -e "Tailscale 状态: ${COLOR_T}${TAILSCALE_STATUS}${NC}"
-    [ -n "$TAILSCALE_IP" ] && echo -e "Tailscale IPv4: ${BLUE}${TAILSCALE_IP}${NC}"
+    # echo -e "DERPER 状态: ${COLOR_D}${DERPER_STATUS}${NC}"
+    # echo -e "Tailscale 状态: ${COLOR_T}${TAILSCALE_STATUS}${NC}"
+    # [ -n "$TAILSCALE_IP" ] && echo -e "Tailscale IPv4: ${BLUE}${TAILSCALE_IP}${NC}"
 }
 
 #--------------------------------------------
