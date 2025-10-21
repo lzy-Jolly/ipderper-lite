@@ -1,18 +1,27 @@
 # 项目仍在更新中版本功能尚未完备 20251021
-# ipderper-lite
+## ipderper-lite 
 ipderper-lite — 轻量级一键脚本，可在 Ubuntu、Debian 和 Alpine Linux 系统上运行 ipderper for tailscale
+## 下面是一键脚本
+安装后  ipderper 打开管理工具
 ```sh
 sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/lzy-Jolly/ipderper-lite/main/install_ipderper.sh)"
 ```
+
+## 官网配置ACL添加ip derper节点
+网站修改地址
+https://login.tailscale.com/admin/acls/file
+
+虽然tailscale官网支持，但是json一般不支持注释，写上它就emmm红了
+实在不会，复制原本官网的文件还有新节点的文件，丢给gpt，让添加节点去重id和保留注释
+
 <details>
 <summary>derpmap.json 示例</summary>
-
 ```json
 {
     "derpMap": {
         "OmitDefaultRegions": false,    // true表示只使用下面定义的节点，测试的时候可以true，正式用falseb
         "Regions": {
-            "931": {                    // 一般跟下面一样 注意多个自定义 derper 的 RegionID 不能一样 
+            "931": {                    // AAA 一般跟下面一样 注意多个自定义 derper 的 RegionID 不能一样 
                 "RegionID": 931,        // tailscale 900-999 是保留给自定义 derper 的，tag--A
                 "RegionCode": "SHK",    // 随便填 一般3个字母(英文数字ascii)
                 "RegionName": "wy_CN2",  // 随便填 方便识(英文数字ascii)
@@ -25,7 +34,7 @@ sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/lzy-Jolly/ipderper-li
                         "InsecureForTests": true    // 如果是自签证书默认true，小白保留这个。
                     }
                 ]
-            },  //<<--------------------------------注意这个regions之间的逗号（json语法）
+            },   //<<--------------------------------注意这个regions之间的逗号（json语法）
             "933": {                                // 这是第二个derper的示例
                 "RegionID": 933,
                 "RegionCode": "AHK",
