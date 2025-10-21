@@ -2,7 +2,7 @@
 # this is ipderper.sh
 
 # 版本
-VERSION="1.2.0"
+VERSION="1.2.1"
 # ipderper.sh
 # 交互式管理 derper + tailscale
 # 工作目录：/etc/ipderperd
