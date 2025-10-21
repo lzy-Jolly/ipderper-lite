@@ -1,6 +1,6 @@
 # 上新
-[中文说明](https://github.com/lzy-Jolly/ipderper-lite/blob/main/readme.md)
-[English](https://github.com/lzy-Jolly/ipderper-lite/blob/main/readme_EN.md)
+[中文说明](https://github.com/lzy-Jolly/ipderper-lite/blob/main/README.md)
+[English](https://github.com/lzy-Jolly/ipderper-lite/blob/main/README_EN.md)
 ## ipderper-lite 
 ipderper-lite — 轻量级一键脚本，可在 Ubuntu、Debian 和 Alpine Linux 系统上运行 ipderper for tailscale
 ## 前提条件
