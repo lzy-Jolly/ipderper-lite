@@ -53,7 +53,7 @@ check_status() {
     PS_CMD="ps -eo pid,cmd"
 
     ### ---- 检查 derper 进程 ----
-    DERPER_BIN=${DERPER_BIN:-"/etc/ipderperd/ipderper"}
+    DERPER_BIN=${DERPER_BIN:-"/etc/ipderperd/derper"}
     DERPER_PID=$($PS_CMD | grep -F "[${DERPER_BIN:0:1}]${DERPER_BIN:1}" | awk '{print $1}')
 
     if [ -n "$DERPER_PID" ]; then
