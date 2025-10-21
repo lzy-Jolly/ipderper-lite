@@ -2,7 +2,7 @@
 # this is ipderper.sh
 
 # 版本
-VERSION="1.2.2"
+VERSION="1.2.3"
 # ipderper.sh
 # 交互式管理 derper + tailscale
 # 工作目录：/etc/ipderperd
@@ -53,7 +53,7 @@ check_status() {
     PS_CMD="ps -eo pid,cmd"
 
     ### ---- 检查 derper 进程 ----
-    DERPER_BIN=${DERPER_BIN:-"/etc/ipderperd/derper"}
+    DERPER_BIN=${DERPER_BIN:-"/etc/ipderperd/ipderper"}
     DERPER_PID=$($PS_CMD | grep -F "[${DERPER_BIN:0:1}]${DERPER_BIN:1}" | awk '{print $1}')
 
     if [ -n "$DERPER_PID" ]; then
@@ -94,6 +94,7 @@ check_status() {
     echo -e "Tailscale 状态: ${COLOR_T}${TAILSCALE_STATUS}${NC}"
     [ -n "$TAILSCALE_IP4" ] && echo -e "Tailscale IPv4: ${BLUE}${TAILSCALE_IP4}${NC}"
 }
+
 
 #--------------------------------------------
 # 启动或重启 derper
@@ -201,7 +202,6 @@ show_info() {
 #--------------------------------------------
 while true; do
     check_status
-    clear
     echo -e "${BLUE}---------欢迎使用脚本 ipderper---------${RESET}"
     echo "1 启动/重启"
     echo "2 停止"
