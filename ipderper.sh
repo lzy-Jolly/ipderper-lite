@@ -368,7 +368,11 @@ show_info() {
 #--------------------------------------------
 while true; do
     check_status
+    echo ""
     echo -e "${BLUE}---------欢迎使用脚本 ipderper---------${RESET}"
+    echo -e "状态 derper   ${COLOR_D}${DERPER_STATUS}${RESET}"
+    echo -e "状态 tailscale ${COLOR_T}${TAILSCALE_STATUS}${RESET}${TAILSCALE_IP:+ IP: ${BLUE}${TAILSCALE_IP}${RESET}}"
+    echo "---------------------------------------------------------------"
     echo "1 启动/重启"
     echo "2 停止"
     echo "3 半自动生成配置文件"
@@ -376,9 +380,8 @@ while true; do
     echo "5 说明与免责声明"
     echo "0 退出"
     echo "---------------------------------------------------------------"
-    echo -e "状态 derper   ${COLOR_D}${DERPER_STATUS}${RESET}"
-    echo -e "状态 tailscale ${COLOR_T}${TAILSCALE_STATUS}${RESET}${TAILSCALE_IP:+ IP: ${BLUE}${TAILSCALE_IP}${RESET}}"
-    echo "请选择(默认回车刷新检测状态)Ctrl+C退出："
+    echo "默认回车刷新检测状态"
+    echo "请选择(Ctrl+C退出)："
     read -r CHOICE
     case "$CHOICE" in
         1) start_or_restart_derper ;;
@@ -387,7 +390,7 @@ while true; do
         4) update_script ;;
         5) show_info ;;
         0) exit 0 ;;
-        "") ;; # 刷新
+        "") ;;             # 刷新
         *) echo "无效选择" ;;
     esac
     sleep 1
