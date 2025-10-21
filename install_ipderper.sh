@@ -37,7 +37,7 @@ case "$OS_TYPE" in
 esac
 
 # 检查并安装依赖
-DEPENDENCIES="curl openssl"
+DEPENDENCIES="curl openssl jq"
 MISSING=""
 for CMD in $DEPENDENCIES; do
     if ! command -v $CMD >/dev/null 2>&1; then
