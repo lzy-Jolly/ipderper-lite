@@ -7,7 +7,8 @@
   "DERP_STUN": true,                       // 是否启用 STUN
   "DERP_VERIFY_CLIENTS": true,             // 是否验证客户端 关键！true 开启防止白嫖 false 关闭
   "DERP_SOCK": "/var/run/tailscale/tailscaled.sock",  // tailscaled.sock
-  "DERP_LOG": "/var/run/derperd/derper.log"           // 日志路径
+  "DERP_LOG": "/etc/ipderperd/log_derper.log"           // 日志路径
 }
+
 
 
