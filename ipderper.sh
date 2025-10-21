@@ -1,12 +1,12 @@
 # this is ipderper.sh
 #!/bin/sh
-VERSION="1.0"
+VERSION="1.0.1"
 
 # 支持大小写的版本查询
 if [ $# -ge 1 ]; then
     arg=$(echo "$1" | tr '[:upper:]' '[:lower:]')
     if [ "$arg" = "-v" ] || [ "$arg" = "--version" ]; then
-        echo "ipderper 当前版本version=$VERSION"
+        echo -e "ipderper 当前版本 version=\e[33m$VERSION\e[0m"
         exit 0
     fi
 fi
