@@ -1,7 +1,7 @@
 #!/bin/sh
 # this is ipderper.sh
 
-VERSION="1.7.0"
+VERSION="1.7.1"
 WORKDIR="/etc/ipderperd"
 CONFIG_FILE="$WORKDIR/config.json"
 CONFIG_TEMPLATE="$WORKDIR/config.jsonc"
@@ -76,9 +76,9 @@ start_with_systemd() {
     echo -e "${BLUE}使用 systemd 启动 derper...${RESET}"
     
     # 创建 systemd 服务文件
-    cat > /tmp/ipderper.service << EOF
+    cat > /tmp/self_ip_derperd.service << EOF
 [Unit]
-Description=IPDerper DERP Server
+Description=Self IP Derper DERP Server
 After=network.target
 
 [Service]
@@ -98,24 +98,31 @@ RestartSec=5
 StandardOutput=append:$DERP_LOG
 StandardError=append:$DERP_LOG
 
+# 设置进程名
+ExecStartPre=/bin/bash -c 'echo "启动 self_ip_derperd 服务..."'
+ExecReload=/bin/kill -HUP \$MAINPID
+
+# 进程名标识
+SyslogIdentifier=self_ip_derperd
+
 [Install]
 WantedBy=multi-user.target
 EOF
 
     # 安装并启动服务
-    sudo cp /tmp/ipderper.service /etc/systemd/system/
+    sudo cp /tmp/self_ip_derperd.service /etc/systemd/system/
     sudo systemctl daemon-reload
-    sudo systemctl enable ipderper.service
-    sudo systemctl start ipderper.service
+    sudo systemctl enable self_ip_derperd.service
+    sudo systemctl start self_ip_derperd.service
     
     # 检查启动状态
     local start_time=$(date +%s)
     local timeout=10
     
     while [ $(($(date +%s) - start_time)) -lt $timeout ]; do
-        if systemctl is-active --quiet ipderper.service; then
-            local derper_pid=$(systemctl show --property=MainPID ipderper.service | cut -d= -f2)
-            echo -e "${GREEN}✅ derper 已通过 systemd 启动 (PID: $derper_pid)${RESET}"
+        if systemctl is-active --quiet self_ip_derperd.service; then
+            local derper_pid=$(systemctl show --property=MainPID self_ip_derperd.service | cut -d= -f2)
+            echo -e "${GREEN}✅ derper 已通过 systemd 启动 (服务名: self_ip_derperd, PID: $derper_pid)${RESET}"
             echo "$derper_pid" > "$PID_FILE"
             return 0
         fi
@@ -123,7 +130,7 @@ EOF
     done
     
     echo -e "${RED}❌ systemd 启动失败${RESET}"
-    sudo systemctl status ipderper.service --no-pager
+    sudo systemctl status self_ip_derperd.service --no-pager
     return 1
 }
 
@@ -134,17 +141,21 @@ start_with_openrc() {
     echo -e "${BLUE}使用 OpenRC 启动 derper...${RESET}"
     
     # 创建 OpenRC init 脚本
-    cat > /tmp/ipderper << EOF
+    cat > /tmp/self_ip_derperd << EOF
 #!/sbin/openrc-run
 
-name="IPDerper DERP Server"
-description="Tailscale DERP server for IPDerper"
+name="Self IP Derper DERP Server"
+description="Self hosted Tailscale DERP server"
 command="$DERPER_BIN"
 command_args="--a=:$DERP_ADDR --hostname=$DERP_HOST --certmode=manual --certdir=$DERP_CERTS --stun=$DERP_STUN --http-port=$DERP_HTTP_PORT --verify-clients=$DERP_VERIFY_CLIENTS"
 command_user="root:root"
-pidfile="/var/run/ipderper.pid"
+command_background=true
+pidfile="/var/run/self_ip_derperd.pid"
 output_log="$DERP_LOG"
 error_log="$DERP_LOG"
+
+# 设置进程名
+procname="self_ip_derperd"
 
 depend() {
     need net
@@ -153,31 +164,56 @@ depend() {
 
 start_pre() {
     checkpath --directory --owner \$command_user \$(dirname \$output_log)
+    checkpath --file --owner \$command_user --mode 0644 \$pidfile
 }
 
 start_post() {
-    echo "IPDerper DERP server started"
+    echo "Self IP Derper DERP server started"
+    # 确保进程名正确设置
+    if [ -f \$pidfile ]; then
+        local pid=\$(cat \$pidfile)
+        if [ -n "\$pid" ]; then
+            # 为进程设置名称
+            printf "self_ip_derperd" > /proc/\$pid/comm 2>/dev/null || true
+        fi
+    fi
 }
 
 stop_post() {
-    echo "IPDerper DERP server stopped"
+    echo "Self IP Derper DERP server stopped"
+    rm -f \$pidfile
+}
+
+# 重载配置
+reload() {
+    if [ -f \$pidfile ]; then
+        local pid=\$(cat \$pidfile)
+        if [ -n "\$pid" ]; then
+            kill -HUP \$pid
+            eend \$? "Failed to reload self_ip_derperd"
+        else
+            eend 1 "PID file exists but is empty"
+        fi
+    else
+        eend 1 "PID file does not exist"
+    fi
 }
 EOF
 
     # 安装并启动服务
-    sudo cp /tmp/ipderper /etc/init.d/
-    sudo chmod +x /etc/init.d/ipderper
-    sudo rc-update add ipderper default
-    sudo /etc/init.d/ipderper start
+    sudo cp /tmp/self_ip_derperd /etc/init.d/
+    sudo chmod +x /etc/init.d/self_ip_derperd
+    sudo rc-update add self_ip_derperd default
+    sudo /etc/init.d/self_ip_derperd start
     
     # 检查启动状态
     local start_time=$(date +%s)
     local timeout=10
     
     while [ $(($(date +%s) - start_time)) -lt $timeout ]; do
-        if sudo /etc/init.d/ipderper status >/dev/null 2>&1; then
-            local derper_pid=$(pgrep -f "$(basename "$DERPER_BIN")")
-            echo -e "${GREEN}✅ derper 已通过 OpenRC 启动 (PID: $derper_pid)${RESET}"
+        if sudo /etc/init.d/self_ip_derperd status >/dev/null 2>&1; then
+            local derper_pid=$(pgrep -f "self_ip_derperd" || pgrep -f "$(basename "$DERPER_BIN")")
+            echo -e "${GREEN}✅ derper 已通过 OpenRC 启动 (服务名: self_ip_derperd, PID: $derper_pid)${RESET}"
             echo "$derper_pid" > "$PID_FILE"
             return 0
         fi
@@ -185,7 +221,7 @@ EOF
     done
     
     echo -e "${RED}❌ OpenRC 启动失败${RESET}"
-    sudo /etc/init.d/ipderper status
+    sudo /etc/init.d/self_ip_derperd status
     return 1
 }
 
@@ -456,12 +492,31 @@ start_or_restart_derper() {
 # 停止 derper
 #--------------------------------------------
 stop_derper() {
+    local max_retries=3
+    local retry_count=0
+    
     # 根据初始化系统选择停止方式
     case "$INIT_SYSTEM" in
         systemd)
             if systemctl is-active --quiet ipderper.service 2>/dev/null; then
+                echo -e "${BLUE}使用 systemd 停止 derper...${RESET}"
                 sudo systemctl stop ipderper.service
                 sudo systemctl disable ipderper.service
+                
+                # 等待进程完全停止
+                while [ $retry_count -lt $max_retries ]; do
+                    if ! systemctl is-active --quiet ipderper.service 2>/dev/null; then
+                        break
+                    fi
+                    retry_count=$((retry_count + 1))
+                    sleep 2
+                done
+                
+                # 强制清理残留服务文件
+                sudo rm -f /etc/systemd/system/ipderper.service
+                sudo systemctl daemon-reload
+                sudo systemctl reset-failed ipderper.service 2>/dev/null || true
+                
                 echo -e "${GREEN}✅ derper 已停止 (systemd)${RESET}"
                 rm -f "$PID_FILE"
                 return 0
@@ -469,8 +524,13 @@ stop_derper() {
             ;;
         openrc)
             if [ -f /etc/init.d/ipderper ] && /etc/init.d/ipderper status >/dev/null 2>&1; then
+                echo -e "${BLUE}使用 OpenRC 停止 derper...${RESET}"
                 sudo /etc/init.d/ipderper stop
                 sudo rc-update del ipderper default
+                
+                # 强制清理残留文件
+                sudo rm -f /etc/init.d/ipderper
+                
                 echo -e "${GREEN}✅ derper 已停止 (OpenRC)${RESET}"
                 rm -f "$PID_FILE"
                 return 0
@@ -478,14 +538,123 @@ stop_derper() {
             ;;
     esac
     
-    # 回退到进程方式停止
-    local pid_to_kill=$(check_derper_status)
-    if [ -n "$pid_to_kill" ]; then
-        kill "$pid_to_kill"
-        echo -e "${GREEN}✅ derper 已停止 (PID: $pid_to_kill)${RESET}"
+    # 回退到强制进程停止
+    echo -e "${YELLOW}使用强制进程停止...${RESET}"
+    force_stop_derper
+}
+
+#--------------------------------------------
+# 强制停止 derper 进程
+#--------------------------------------------
+force_stop_derper() {
+    local max_attempts=3
+    local attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+        attempt=$((attempt + 1))
+        
+        # 查找所有 derper 相关进程
+        local pids=$(pgrep -f "derper.*--a=:$DERP_ADDR" 2>/dev/null)
+        
+        if [ -z "$pids" ]; then
+            echo -e "${GREEN}✅ derper 进程已停止${RESET}"
+            rm -f "$PID_FILE"
+            
+            # 清理残留服务文件
+            sudo rm -f /etc/systemd/system/ipderper.service
+            sudo rm -f /etc/init.d/ipderper
+            sudo systemctl daemon-reload 2>/dev/null || true
+            
+            return 0
+        fi
+        
+        echo -e "${YELLOW}尝试停止进程 (第 $attempt 次): $pids${RESET}"
+        
+        # 先尝试正常停止
+        kill $pids 2>/dev/null || true
+        sleep 2
+        
+        # 检查进程是否还在
+        local remaining_pids=$(pgrep -f "derper.*--a=:$DERP_ADDR" 2>/dev/null)
+        if [ -z "$remaining_pids" ]; then
+            echo -e "${GREEN}✅ derper 进程已停止${RESET}"
+            rm -f "$PID_FILE"
+            
+            # 清理残留服务文件
+            sudo rm -f /etc/systemd/system/ipderper.service
+            sudo rm -f /etc/init.d/ipderper
+            sudo systemctl daemon-reload 2>/dev/null || true
+            
+            return 0
+        fi
+        
+        # 如果还有进程，使用强制停止
+        if [ $attempt -eq 2 ]; then
+            echo -e "${YELLOW}使用 SIGTERM 强制停止...${RESET}"
+            kill -15 $remaining_pids 2>/dev/null || true
+        elif [ $attempt -eq 3 ]; then
+            echo -e "${RED}使用 SIGKILL 强制停止...${RESET}"
+            kill -9 $remaining_pids 2>/dev/null || true
+        fi
+        
+        sleep 2
+    done
+    
+    # 最终检查
+    local final_pids=$(pgrep -f "derper.*--a=:$DERP_ADDR" 2>/dev/null)
+    if [ -z "$final_pids" ]; then
+        echo -e "${GREEN}✅ derper 进程已停止${RESET}"
         rm -f "$PID_FILE"
+        
+        # 清理残留服务文件
+        sudo rm -f /etc/systemd/system/ipderper.service
+        sudo rm -f /etc/init.d/ipderper
+        sudo systemctl daemon-reload 2>/dev/null || true
+        
+        return 0
     else
-        echo -e "${YELLOW}derper 未运行${RESET}"
+        echo -e "${RED}❌ 无法停止 derper 进程: $final_pids${RESET}"
+        return 1
+    fi
+}
+
+#--------------------------------------------
+# 完全清理 derper 服务
+#--------------------------------------------
+cleanup_derper_service() {
+    echo -e "${BLUE}完全清理 derper 服务...${RESET}"
+    
+    # 停止服务
+    stop_derper
+    
+    # 清理所有可能的相关文件
+    echo -e "${YELLOW}清理服务文件...${RESET}"
+    
+    # systemd 清理
+    sudo rm -f /etc/systemd/system/ipderper.service
+    sudo systemctl daemon-reload 2>/dev/null || true
+    sudo systemctl reset-failed 2>/dev/null || true
+    
+    # OpenRC 清理
+    sudo rm -f /etc/init.d/ipderper
+    
+    # 清理 PID 文件
+    rm -f "$PID_FILE"
+    
+    # 再次检查并强制停止任何残留进程
+    local remaining_pids=$(pgrep -f "derper.*--a=:" 2>/dev/null)
+    if [ -n "$remaining_pids" ]; then
+        echo -e "${YELLOW}强制停止残留进程: $remaining_pids${RESET}"
+        kill -9 $remaining_pids 2>/dev/null || true
+        sleep 1
+    fi
+    
+    # 最终验证
+    local final_check=$(pgrep -f "derper.*--a=:" 2>/dev/null)
+    if [ -z "$final_check" ]; then
+        echo -e "${GREEN}✅ derper 服务完全清理完成${RESET}"
+    else
+        echo -e "${RED}❌ 仍有残留进程: $final_check${RESET}"
     fi
 }
 
