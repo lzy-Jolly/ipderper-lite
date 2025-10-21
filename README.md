@@ -12,6 +12,7 @@ sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/lzy-Jolly/ipderper-li
 https://login.tailscale.com/admin/acls/file
 
 虽然tailscale官网支持，但是json一般不支持注释，写上它就emmm红了
+
 实在不会，复制原本官网的文件还有新节点的文件，丢给gpt，让添加节点去重id和保留注释
 
 <details>
