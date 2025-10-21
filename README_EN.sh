@@ -1,4 +1,7 @@
 # New Release!  
+[中文说明](https://github.com/lzy-Jolly/ipderper-lite/blob/main/README.md)
+[English](https://github.com/lzy-Jolly/ipderper-lite/blob/main/README_EN.md)
+
 ## ipderper-lite  
 **ipderper-lite** — A lightweight one-click script to run **ipderper** for Tailscale on Ubuntu, Debian, and Alpine Linux systems.
 
