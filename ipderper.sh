@@ -2,7 +2,7 @@
 # this is ipderper.sh
 
 # 版本
-VERSION="1.2.1"
+VERSION="1.2.2"
 # ipderper.sh
 # 交互式管理 derper + tailscale
 # 工作目录：/etc/ipderperd
@@ -40,55 +40,59 @@ YELLOW="\e[33m"
 RED="\e[31m"
 BLUE="\e[36m"
 RESET="\e[0m"
-
+NC=${NC:-"\033[0m"}
 #--------------------------------------------
 # 状态检测函数
 #--------------------------------------------
 
 check_status() {
-    # derper 状态检测
-    if [ -f "$DERPER_BIN" ]; then
-        OS_TYPE=$(awk -F= '/^ID=/{print $2}' /etc/os-release | tr -d '"')
-        if [ "$OS_TYPE" = "alpine" ]; then
-            PS_CMD="ps -e"
-        else
-            PS_CMD="ps -ef"
-        fi
+    
+    
 
-        # 排除当前脚本进程
-        DERPER_PID=$($PS_CMD | grep "[d]erper" | grep -v "[i]pderper.sh" | awk '{print $1}')
-        if [ -n "$DERPER_PID" ]; then
-            DERPER_STATUS="已启动"
-            COLOR_D=$GREEN
-        else
-            DERPER_STATUS="未启动"
-            COLOR_D=$YELLOW
-        fi
+    # ps 命令统一
+    PS_CMD="ps -eo pid,cmd"
+
+    ### ---- 检查 derper 进程 ----
+    DERPER_BIN=${DERPER_BIN:-"/etc/ipderperd/ipderper"}
+    DERPER_PID=$($PS_CMD | grep -F "[${DERPER_BIN:0:1}]${DERPER_BIN:1}" | awk '{print $1}')
+
+    if [ -n "$DERPER_PID" ]; then
+        DERPER_STATUS="已启动"
+        COLOR_D=$GREEN
     else
-        DERPER_STATUS="未安装"
-        COLOR_D=$RED
+        DERPER_STATUS="未启动"
+        COLOR_D=$YELLOW
     fi
 
-    # tailscale 状态检测
-    
-    if command -v tailscale >/dev/null 2>&1; then
-        # tailscale 是否在运行
-        TAILSCALE_PID=$($PS_CMD | grep "[t]ailscaled" | awk '{print $1}')
-        if [ -n "$TAILSCALE_PID" ]; then
-            TAILSCALE_STATUS="已启动"
-            # 获取第一个 IPv4 地址
-            TAILSCALE_IP=$(tailscale ip 2>/dev/null | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1)
+    ### ---- 检查 tailscale 状态 ----
+    # 1. 检查是否安装
+    TAILSCALE_IP_OUTPUT=$(tailscale ip 2>&1)
+    if [[ $? -ne 0 ]] || echo "$TAILSCALE_IP_OUTPUT" | grep -q "not found"; then
+        TAILSCALE_STATUS="未安装"
+        TAILSCALE_IP4=""
+        COLOR_T=$RED
+    else
+        # 2. 获取 IPv4 地址
+        TAILSCALE_IP4=$(echo "$TAILSCALE_IP_OUTPUT" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1)
+
+        # 3. 检查连接状态
+        TAILSCALE_STATUS_OUTPUT=$(tailscale status 2>&1)
+        if echo "$TAILSCALE_STATUS_OUTPUT" | grep -q "Tailscale is stopped"; then
+            TAILSCALE_STATUS="已安装但未启动"
+            COLOR_T=$YELLOW
+        elif echo "$TAILSCALE_STATUS_OUTPUT" | grep -q "$TAILSCALE_IP4"; then
+            TAILSCALE_STATUS="已启动并连接"
             COLOR_T=$GREEN
         else
-            TAILSCALE_STATUS="未启动"
-            TAILSCALE_IP=""
+            TAILSCALE_STATUS="已安装但未连接"
             COLOR_T=$YELLOW
         fi
-    else
-        TAILSCALE_STATUS="未安装"
-        TAILSCALE_IP=""
-        COLOR_T=$RED
     fi
+
+    ### ---- 输出检测结果 ----
+    echo -e "DERPER 状态: ${COLOR_D}${DERPER_STATUS}${NC}"
+    echo -e "Tailscale 状态: ${COLOR_T}${TAILSCALE_STATUS}${NC}"
+    [ -n "$TAILSCALE_IP4" ] && echo -e "Tailscale IPv4: ${BLUE}${TAILSCALE_IP4}${NC}"
 }
 
 #--------------------------------------------
