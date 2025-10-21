@@ -1,5 +1,5 @@
 {
-  "DERP_ADDR": ":47100",                   // derper服务的TCP 服务端口，建议高位10000+ 
+  "DERP_ADDR": "47100",                   // derper服务的TCP 服务端口，建议高位10000+ 
   // 以下变量如果你不熟悉，请不要修改
   "DERP_HOST": "127.0.0.1",                // IP 或主机名
   "DERP_HTTP_PORT": 80,                    // HTTP 可选端口 可有可无不用改
@@ -9,4 +9,5 @@
   "DERP_SOCK": "/var/run/tailscale/tailscaled.sock",  // tailscaled.sock
   "DERP_LOG": "/var/run/derperd/derper.log"           // 日志路径
 }
+
 
