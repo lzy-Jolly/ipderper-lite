@@ -17,14 +17,24 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# -------------------------------
 # 检查 VERSION 是否设置（环境变量）
+# -------------------------------
 if [ -n "$VERSION" ]; then
     echo "检测到指定版本：$VERSION"
     FILE_URL="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/ipderper.sh"
+
+    # ---------- 新增：检查 URL 是否存在 ----------
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FILE_URL")
+    if [ "$HTTP_STATUS" != "200" ]; then
+        echo "❌ 指定版本 v${VERSION} 不存在，请确认已经发布到 GitHub Releases"
+        exit 1
+    fi
 else
     echo "未指定版本，默认安装最新 main 分支版本"
     FILE_URL="${GITHUB_RAW}/main/ipderper.sh"
 fi
+# ---------------------------------------------
 
 # 创建目录
 mkdir -p "${DEST_DIR}"
@@ -58,4 +68,3 @@ echo ""
 echo "如需卸载 ipderper，请执行："
 echo "  sudo rm -f /usr/local/bin/ipderper"
 echo "  sudo rm -rf /etc/ipderperd"
-
