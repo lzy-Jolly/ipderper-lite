@@ -45,6 +45,7 @@ sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/lzy-Jolly/ipderper-li
     "grants": [----这部分留着别管----],
     "ssh": [----这部分留着别管----],
     "nodeAttrs":  [----这部分留着别管----]
+
 }
-</details> 
 ```
+</details> 
