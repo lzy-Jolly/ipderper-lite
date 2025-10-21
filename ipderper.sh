@@ -211,7 +211,7 @@ while true; do
     echo -e "状态 tailscale ${COLOR_T}${TAILSCALE_STATUS}${RESET} IP: ${TAILSCALE_IP}"
 
     if [ "$DERPER_STATUS" = "已启动" ] && [ "$TAILSCALE_STATUS" = "已启动" ]; then
-        echo "PS: 请选择(默认回车刷新检测状态)Ctrl+C退出："
+        echo "请选择(默认回车刷新检测状态)Ctrl+C退出："
     else
         echo "PS:"
         [ "$DERPER_STATUS" = "未安装" ] && echo "    ipderper程序包缺失，重新下载-->5查看说明"
