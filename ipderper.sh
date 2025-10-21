@@ -233,8 +233,8 @@ generate_config() {
         echo -e "${YELLOW}配置文件已备份为 config.json.bak${RESET}"
     fi
 
-    # 2️⃣ 生成随机端口并让用户选择
-    RANDOM_PORT=$((RANDOM % 55536 + 10000))
+    # 2️⃣ 生成随机端口并让用户选择（10000-65535）
+    RANDOM_PORT=$(od -An -N2 -i /dev/urandom | awk -v min=10000 -v max=65535 '{print ($1 % (max - min + 1)) + min}')
     echo -e "默认随机端口: ${YELLOW}$RANDOM_PORT${RESET}"
     read -r -p "输入端口(回车使用默认): " USER_PORT
     DERP_PORT=${USER_PORT:-$RANDOM_PORT}
@@ -246,7 +246,6 @@ generate_config() {
     sed -i 's|//.*$||' "$CONFIG_FILE"
 
     # 4️⃣ 使用 jq 修改 DERP_ADDR
-    # jq 会自动处理 JSON 注释丢失的问题，如果想保留注释，需要额外处理，这里直接更新值
     jq --arg port "$DERP_PORT" '.DERP_ADDR = ($port|tonumber)' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
 
     echo -e "${GREEN}✅ 配置文件已生成: $CONFIG_FILE${RESET}"
