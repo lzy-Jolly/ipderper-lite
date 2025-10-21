@@ -151,11 +151,11 @@ start_or_restart_derper() {
     sh "$BUILD_CERT" "$DERP_HOST" "$DERP_CERTS" "$WORKDIR/san.conf"
 
     setsid "$DERPER_BIN" \
+        --a=":$DERP_ADDR" \
         --hostname="$DERP_HOST" \
         --certmode=manual \
         --certdir="$DERP_CERTS" \
-        --stun="$DERP_STUN" \
-        --a=":$DERP_ADDR" \
+        --stun="$DERP_STUN" \        
         --http-port="$DERP_HTTP_PORT" \
         --verify-clients="$DERP_VERIFY_CLIENTS" \
         >>"$DERP_LOG" 2>&1 < /dev/null &
