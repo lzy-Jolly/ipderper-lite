@@ -1,7 +1,7 @@
 #!/bin/sh
 # this is ipderper.sh
 
-VERSION="1.5.0"
+VERSION="1.6.0"
 WORKDIR="/etc/ipderperd"
 CONFIG_FILE="$WORKDIR/config.json"
 CONFIG_TEMPLATE="$WORKDIR/config.jsonc"
@@ -144,28 +144,71 @@ start_or_restart_derper() {
     # 读取config.json配置
     load_derper_config
 
+    # 检测系统类型
+    detect_os
+
     mkdir -p "$(dirname "$DERP_LOG")"
     stop_derper >/dev/null 2>&1
 
     echo -e "${BLUE}生成证书并启动 derper...${RESET}"
     sh "$BUILD_CERT" "$DERP_HOST" "$DERP_CERTS" "$WORKDIR/san.conf"
 
-    setsid "$DERPER_BIN" \
-        --a=":$DERP_ADDR" \
-        --hostname="$DERP_HOST" \
-        --certmode=manual \
-        --certdir="$DERP_CERTS" \
-        --stun="$DERP_STUN" \        
-        --http-port="$DERP_HTTP_PORT" \
-        --verify-clients="$DERP_VERIFY_CLIENTS" \
-        >>"$DERP_LOG" 2>&1 < /dev/null &
+    # 根据系统类型选择启动方式
+    case "$OS_TYPE" in
+        alpine)
+            echo -e "${BLUE}使用 Alpine 启动方式 (setsid)...${RESET}"
+            setsid "$DERPER_BIN" \
+                --a=":$DERP_ADDR" \
+                --hostname="$DERP_HOST" \
+                --certmode=manual \
+                --certdir="$DERP_CERTS" \
+                --stun="$DERP_STUN" \
+                --http-port="$DERP_HTTP_PORT" \
+                --verify-clients="$DERP_VERIFY_CLIENTS" \
+                >>"$DERP_LOG" 2>&1 < /dev/null &
+            ;;
+        debian|ubuntu)
+            echo -e "${BLUE}使用 Debian/Ubuntu 启动方式 (nohup)...${RESET}"
+            nohup "$DERPER_BIN" \
+                --a=":$DERP_ADDR" \
+                --hostname="$DERP_HOST" \
+                --certmode=manual \
+                --certdir="$DERP_CERTS" \
+                --stun="$DERP_STUN" \
+                --http-port="$DERP_HTTP_PORT" \
+                --verify-clients="$DERP_VERIFY_CLIENTS" \
+                >>"$DERP_LOG" 2>&1 &
+            ;;
+        *)
+            echo -e "${YELLOW}未知系统类型，使用默认启动方式 (nohup)...${RESET}"
+            nohup "$DERPER_BIN" \
+                --a=":$DERP_ADDR" \
+                --hostname="$DERP_HOST" \
+                --certmode=manual \
+                --certdir="$DERP_CERTS" \
+                --stun="$DERP_STUN" \
+                --http-port="$DERP_HTTP_PORT" \
+                --verify-clients="$DERP_VERIFY_CLIENTS" \
+                >>"$DERP_LOG" 2>&1 &
+            ;;
+    esac
 
-    echo -e "${GREEN}✅ derper 已启动，日志: $DERP_LOG${RESET}"
+    # 等待进程启动
+    sleep 2
+    
+    # 检查是否启动成功
+    if pgrep -f "$DERPER_BIN" > /dev/null; then
+        echo -e "${GREEN}✅ derper 已启动，日志: $DERP_LOG${RESET}"
+        echo -e "${BLUE}使用系统: $OS_TYPE | 启动方式: $(case "$OS_TYPE" in alpine) echo "setsid" ;; *) echo "nohup" ;; esac)${RESET}"
+    else
+        echo -e "${RED}❌ derper 启动失败，请检查日志: $DERP_LOG${RESET}"
+        echo -e "${YELLOW}最近日志内容：${RESET}"
+        tail -n 10 "$DERP_LOG" 2>/dev/null || echo "日志文件不存在"
+    fi
 
     # 生成 derpmap 示例文件
     generate_derpmap_example "$DERP_ADDR"
 }
-
 
 #--------------------------------------------
 # 停止 derper
