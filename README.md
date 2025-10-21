@@ -4,7 +4,7 @@
 ## ipderper-lite 
 ipderper-lite — 轻量级一键脚本，可在 Ubuntu、Debian 和 Alpine Linux 系统上运行 ipderper for tailscale
 ## 前提条件
-1.支持Alpine=>3.20,Ubuntu=20-24，debian=11-13。（没太测试过，但是都用很基础的sh功能）
+1.支持Alpine=>3.20,Ubuntu=20-24，debian=12-13。（没太测试过，但是都用很基础的sh功能）
 
     ps:建议基础的apt和apk 都 update一下
     
