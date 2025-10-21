@@ -8,7 +8,7 @@
 ---
 
 ## Prerequisites
-1. Supported systems: Alpine ≥ 3.20, Ubuntu 20–24, Debian 11–13.  
+1. Supported systems: Alpine ≥ 3.20, Ubuntu 20–24, Debian 12–13.  
    *(Not extensively tested, but relies on basic `sh` functionality.)*  
    **Tip:** It's recommended to update your package manager first:
    ```sh
