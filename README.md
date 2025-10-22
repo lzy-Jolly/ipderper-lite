@@ -27,6 +27,18 @@ https://login.tailscale.com/admin/acls/file
 
 实在不会，复制原本官网的文件还有新节点的文件，丢给gpt，让添加节点去重id和保留注释
 
+
+
+## logs
+
+try looking derper in /etc/systemd/system/ 
+```sh
+ls /etc/systemd/system/ | grep derper
+systemctl stop self_ip_derperd.service
+
+```
+
+
 <details>
 
 ```json
