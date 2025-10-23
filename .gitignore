@@ -3,3 +3,5 @@ config.json
 README.md
 README_EN.md
 /app/dpderper.sh
+.gitignore
+# derpmap.json
