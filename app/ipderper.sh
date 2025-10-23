@@ -1,13 +1,13 @@
 #!/bin/sh
 # this is ipderper.sh
 
-VERSION="1.8.0"
+VERSION="1.8.1"
 WORKDIR="/etc/ipderperd"
 CONFIG_FILE="$WORKDIR/config.json"
 CONFIG_TEMPLATE="$WORKDIR/app/config.jsonc"
 DERPER_BIN="$WORKDIR/app/derper"
 BUILD_CERT="$WORKDIR/app/build_cert.sh"
-PID_FILE="$WORKDIR/derper.pid"
+# PID_FILE="$WORKDIR/derper.pid"
 
 # 颜色定义
 GREEN="\e[32m"; YELLOW="\e[33m"; RED="\e[31m"; BLUE="\e[36m"; RESET="\e[0m"
