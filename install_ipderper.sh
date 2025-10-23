@@ -64,7 +64,7 @@ chmod 755 "$APP_DIR"
 FILES="derper ipderper.sh build_cert.sh config.jsonc"
 for FILE in $FILES; do
     echo "下载 $FILE ..."
-    if ! curl -fsSL "${GITHUB_RAW}/${FILE}" -o "${APP_DIR}/${FILE}"; then
+    if ! curl -fsSL "${GITHUB_RAW}/app/${FILE}" -o "${APP_DIR}/${FILE}"; then
         echo "❌ 下载 $FILE 失败"
         exit 1
     fi
