@@ -947,7 +947,8 @@ while true; do
            read -r key
            echo
            ;;
-        2) stop_derper
+        2) exit_derper
+            # stop_derper
            printf "按Enter返回主菜单..." 
            read -r key
            echo
