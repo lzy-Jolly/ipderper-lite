@@ -1,7 +1,7 @@
 #!/bin/sh
 # this is ipderper.sh
 
-VERSION="1.8.1"
+VERSION="1.8.2"
 WORKDIR="/etc/ipderperd"
 CONFIG_FILE="$WORKDIR/config.json"
 CONFIG_TEMPLATE="$WORKDIR/app/config.jsonc"
@@ -58,8 +58,11 @@ detect_system() {
 start_with_systemd() {
     echo -e "${BLUE}使用 systemd 启动 derper...${RESET}"
     
+    # 设置日志管理
+    setup_log_management
+    
     # 创建 systemd 服务文件
-    cat > /tmp/selfipderperd.service << EOF
+    cat > "$WORKDIR/selfipderperd.service" << EOF
 [Unit]
 Description=Self IP Derper DERP Server
 After=network.target
@@ -93,7 +96,7 @@ WantedBy=multi-user.target
 EOF
 
     # 安装并启动服务
-    sudo cp /tmp/selfipderperd.service /etc/systemd/system/
+    sudo cp "$WORKDIR/selfipderperd.service" /etc/systemd/system/
     sudo systemctl daemon-reload
     sudo systemctl enable selfipderperd.service
     sudo systemctl start selfipderperd.service
@@ -116,6 +119,41 @@ EOF
     sudo systemctl status selfipderperd.service --no-pager
     return 1
 }
+#--------------------------------------------
+# 日志管理设置 (systemd 专用)
+#--------------------------------------------
+setup_log_management() {
+    # 只在 systemd 系统上设置 logrotate
+    if [ "$INIT_SYSTEM" != "systemd" ]; then
+        echo -e "${YELLOW}⚠️  非 systemd 系统，跳过 logrotate 设置${RESET}"
+        return 0
+    fi
+    
+    local logrotate_config="/etc/logrotate.d/selfipderperd"
+    
+    # 创建 logrotate 配置
+    cat > "$logrotate_config" << EOF
+$WORKDIR/logs/derper.log {
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+    copytruncate
+    maxsize 32M
+}
+EOF
+    
+    # 设置权限
+    chmod 644 "$logrotate_config"
+    
+    echo -e "${GREEN}✅ systemd 日志管理已配置${RESET}"
+    echo -e "   位置: $logrotate_config"
+    echo -e "   保留: 7份, 单文件: 32MB"
+}
+
+
 
 #--------------------------------------------
 # 使用 OpenRC 启动 (Alpine)
@@ -689,8 +727,8 @@ exit_derper() {
         systemd)
             if systemctl is-active --quiet selfipderperd.service 2>/dev/null; then
                 echo -e "${BLUE}使用 systemd 停止 derper...${RESET}"
-                sudo systemctl stop selfipderperd.service
-                sudo systemctl disable selfipderperd.service
+                sudo systemctl stop selfipderperd
+                sudo systemctl disable selfipderperd
                 
                 # 等待进程完全停止
                 while [ $retry_count -lt $max_retries ]; do
