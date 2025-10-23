@@ -19,13 +19,7 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/lzy-Jolly/ipderper-lite/main/install_ipderper.sh)"
 ```
 
-## 官网配置ACL添加ip derper节点
-网站修改地址
-https://login.tailscale.com/admin/acls/file
 
-虽然tailscale官网支持，但是json一般不支持注释，写上它就emmm红了
-
-实在不会，复制原本官网的文件还有新节点的文件，丢给gpt，让添加节点去重id和保留注释
 
 
 
@@ -34,10 +28,24 @@ https://login.tailscale.com/admin/acls/file
 try looking derper in /etc/systemd/system/ 
 ```sh
 ls /etc/systemd/system/ | grep derper
-systemctl stop self_ip_derperd.service
+
+# 手动测试 logrotate 配置
+logrotate -d /etc/logrotate.d/selfipderperd
+
+# 手动触发日志轮换
+logrotate -f /etc/logrotate.d/selfipderperd
+
+# 查看日志状态
+ipderper -m log-status
 
 ```
+## 官网配置ACL添加ip derper节点
+网站修改地址
+https://login.tailscale.com/admin/acls/file
 
+虽然tailscale官网支持，但是json一般不支持注释，写上它就emmm红了
+
+实在不会，复制原本官网的文件还有新节点的文件，丢给gpt，让添加节点去重id和保留注释
 
 <details>
 
