@@ -692,6 +692,9 @@ show_info() {
 #--------------------------------------------
 # 主循环
 #--------------------------------------------
+# pre loading sone variables from detect or load
+detect_system 
+load_derper_config
 while true; do
     status_checker
     UTC_TIME=$(date -u '+%y-%m-%d %H:%M')
