@@ -1,7 +1,7 @@
 #!/bin/sh
 # this is ipderper.sh
 
-VERSION="1.9.0"
+VERSION="1.9.1"
 WORKDIR="/etc/ipderperd"
 CONFIG_FILE="$WORKDIR/config.json"
 CONFIG_TEMPLATE="$WORKDIR/app/config.jsonc"
@@ -648,19 +648,67 @@ force_stop_derper() {
 # 配置生成
 #--------------------------------------------
 generate_config() {
+    
+    # --- 1. 备份现有配置 ---
     if [ -f "$CONFIG_FILE" ]; then
         cp "$CONFIG_FILE" "$CONFIG_FILE.bak"
-        echo -e "${YELLOW}配置文件已备份为 config.json.bak${RESET}"
+        echo -e "${YELLOW}配置文件已备份为 $CONFIG_FILE.bak${RESET}"
     fi
 
+    # --- 2. 获取公网 IP 作为 DERP_HOST 默认值 ---
+    echo -e "正在检测公网 IP (默认 DERP_HOST)..."
+    # 使用 curl -s 4.ipw.cn 获取公网 IP
+    DEFAULT_HOST=$(curl -s 4.ipw.cn)
+    
+    # 检查 curl 是否成功获取 IP
+    if [ $? -ne 0 ] || [ -z "$DEFAULT_HOST" ]; then
+        echo -e "${RED}⚠️ IP 检测失败或网络不通。默认 DERP_HOST 将使用 127.0.0.1${RESET}"
+        DEFAULT_HOST="127.0.0.1"
+    else
+        echo -e "${GREEN}✅ 检测到的公网 IP: $DEFAULT_HOST${RESET}"
+    fi
+
+    # --- 3. 获取 DERP_HOST 输入 (2秒默认值) ---
+    echo -e "\n默认 DERP_HOST: ${YELLOW}$DEFAULT_HOST${RESET}"
+    echo -n "输入主机名/IP (回车使用默认, 2秒后自动选择,按任意键打断): "
+    
+    # -t 2 设置超时2秒, -n 1 接收1个字符, -s 隐藏输入
+    read -r -t 2 -n 1 USER_CHAR 
+    
+    if [ $? -eq 0 ]; then
+        # 如果在 2 秒内按下了任意键，清空输入行并等待完整输入
+        echo 
+        read -r -p "继续输入主机名/IP: " USER_HOST
+    else
+        # 2 秒超时
+        echo 
+        USER_HOST=""
+    fi
+    
+    DERP_HOST=${USER_HOST:-$DEFAULT_HOST}
+    echo -e "${GREEN}⭐ 最终 DERP_HOST: $DERP_HOST${RESET}"
+
+
+    # --- 4. 获取 DERP_ADDR 端口输入 ---
     RANDOM_PORT=$(od -An -N2 -i /dev/urandom | awk -v min=10000 -v max=65535 '{print ($1 % (max - min + 1)) + min}')
+    echo
     echo -e "默认随机端口: ${YELLOW}$RANDOM_PORT${RESET}"
     read -r -p "输入端口(回车使用默认): " USER_PORT
     DERP_PORT=${USER_PORT:-$RANDOM_PORT}
+    echo -e "${GREEN}⭐ 最终 DERP_PORT: $DERP_PORT${RESET}"
 
+    # --- 5. 生成配置文件 ---
     cp "$CONFIG_TEMPLATE" "$CONFIG_FILE"
+    
+    # 1. 移除 JSON 注释
     sed -i 's|//.*$||' "$CONFIG_FILE"
-    jq --arg port "$DERP_PORT" '.DERP_ADDR = ($port|tonumber)' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+    
+    # 2. 使用 jq 更新 DERP_ADDR 和 DERP_HOST
+    # 注意: jq 的 tostring 是必须的，因为 DERP_ADDR 在模板中是 ":47100" 这种格式。
+    # 更好的方式是直接将 DERP_ADDR 设置为 "$port"
+    jq --arg port "$DERP_PORT" \
+       --arg host "$DERP_HOST" \
+       '.DERP_ADDR = ($port|tonumber) | .DERP_HOST = $host' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
 
     echo -e "${GREEN}✅ 配置文件已生成: $CONFIG_FILE${RESET}"
 }
