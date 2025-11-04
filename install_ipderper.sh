@@ -9,6 +9,8 @@ LINK="/usr/local/bin/ipderper"
 
 GITHUB_REPO="lzy-Jolly/ipderper-lite"
 GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
+S3_URL="https://ipderperd.jooly.cloud/app.tar"
+TEMP_TAR="/tmp/app.tar"
 
 # 检查 root 权限
 if [ "$(id -u)" -ne 0 ]; then
@@ -58,19 +60,63 @@ fi
 mkdir -p "$DEST_DIR"
 mkdir -p "$APP_DIR"
 chmod 755 "$DEST_DIR"
-chmod 755 "$APP_DIR"
 
-# 下载文件到app目录
+# --- 👇 修改后的下载逻辑 START 👇 ---
+
+# 尝试优先使用 GitHub 方式下载，设置 5 秒连接和接收超时
+echo "尝试使用 GitHub 原始网址下载 (优先方式, 5秒超时)..."
+GITHUB_SUCCESS=0
+if curl -fsSL --connect-timeout 5 --max-time 5 "${GITHUB_RAW}/app/derper" -o "${DEST_DIR}/derper.test"; then
+    echo "✅ GitHub 原始网址连接成功，将使用此方式下载所有文件。"
+    GITHUB_SUCCESS=1
+    # 删除测试文件
+    rm -f "${DEST_DIR}/derper.test"
+else
+    echo "❌ GitHub 原始网址连接/下载失败或超时 (5秒)，切换到 S3 存储方式。"
+fi
+
+# 清理旧的 app 目录以避免冲突
+rm -rf "$APP_DIR" 
+mkdir -p "$APP_DIR" # 无论哪种方式，都需要确保 APP_DIR 存在
+
+if [ "$GITHUB_SUCCESS" -eq 1 ]; then
+    # **GitHub 方式下载所有文件**
 FILES="derper ipderper.sh build_cert.sh config.jsonc"
 for FILE in $FILES; do
     echo "下载 $FILE ..."
-    if ! curl -fsSL "${GITHUB_RAW}/app/${FILE}" -o "${APP_DIR}/${FILE}"; then
-        echo "❌ 下载 $FILE 失败"
+        # 设置一个更长的超时时间来完成下载
+        if ! curl -fsSL --max-time 30 "${GITHUB_RAW}/app/${FILE}" -o "${APP_DIR}/${FILE}"; then
+            echo "❌ 下载 $FILE 失败，中断安装。"
+            exit 1
+        fi
+    done
+    
+else
+    # **S3 存储方式下载和解压**
+    echo "下载 S3 存储的 app.tar 压缩包..."
+    if ! curl -fsSL "$S3_URL" -o "$TEMP_TAR"; then
+        echo "❌ S3 压缩包下载失败，中断安装。"
         exit 1
     fi
-    chmod +x "${APP_DIR}/${FILE}" || true
-    chown root:root "${APP_DIR}/${FILE}"
-done
+
+    echo "解压 app.tar 到 $DEST_DIR (会生成 $APP_DIR 目录)..."
+    if ! tar -xf "$TEMP_TAR" -C "$DEST_DIR"; then
+        echo "❌ 解压 app.tar 失败，中断安装。"
+        rm -f "$TEMP_TAR" || true
+        exit 1
+    fi
+
+    echo "清理临时文件 $TEMP_TAR..."
+    rm -f "$TEMP_TAR" || true
+fi
+
+# --- 👆 修改后的下载逻辑 END 👆 ---
+
+# 统一赋权和设置所有权 (适用于两种下载方式)
+echo "设置文件权限和所有权..."
+# 遍历 $APP_DIR 中的所有文件和目录进行赋权
+find "$APP_DIR" -type f -exec chmod +x {} \; || true # 赋予可执行权限
+find "$APP_DIR" -exec chown root:root {} \;
 
 # 建立全局软链接（指向app目录下的脚本）
 ln -sf "${APP_DIR}/ipderper.sh" "$LINK"
