@@ -1,12 +1,13 @@
 #!/bin/sh
 # this is ipderper.sh
 
-VERSION="1.9.1"
+VERSION="1.9.3"
 WORKDIR="/etc/ipderperd"
 CONFIG_FILE="$WORKDIR/config.json"
 CONFIG_TEMPLATE="$WORKDIR/app/config.jsonc"
 DERPER_BIN="$WORKDIR/app/derper"
 BUILD_CERT="$WORKDIR/app/build_cert.sh"
+#mkdir -p /etc/ipderperd/logs/
 
 # 颜色定义
 GREEN="\e[32m"; YELLOW="\e[33m"; RED="\e[31m"; BLUE="\e[36m"; RESET="\e[0m"
@@ -220,7 +221,7 @@ EOF
     while [ $(($(date +%s) - start_time)) -lt $timeout ]; do
         if sudo rc-service selfipderperd status >/dev/null 2>&1; then
             local derper_pid=$(sudo rc-service selfipderperd status 2>/dev/null | grep -o "pid [0-9]*" | awk '{print $2}' | head -1)
-            echo -e "${GREEN}✅ derper 已通过 OpenRC 启动 (服务名: selfipderperd, PID: $derper_pid)${RESET}"
+            echo -e "${GREEN}✅ derper 已通过 OpenRC 启动 (服务名: selfipderperd, $derper_pid)${RESET}"
             return 0
         fi
         sleep 1
@@ -389,6 +390,9 @@ load_derper_config() {
         generate_config
     fi
 
+    # 使用子 Shell () 和 export 确保变量在函数外可用
+#    (
+        # 核心配置，通常假定它们存在
     DERP_ADDR=$(jq -r '.DERP_ADDR' "$CONFIG_FILE")
     DERP_HOST=$(jq -r '.DERP_HOST' "$CONFIG_FILE")
     DERP_HTTP_PORT=$(jq -r '.DERP_HTTP_PORT' "$CONFIG_FILE")
@@ -396,6 +400,9 @@ load_derper_config() {
     DERP_STUN=$(jq -r '.DERP_STUN' "$CONFIG_FILE")
     DERP_VERIFY_CLIENTS=$(jq -r '.DERP_VERIFY_CLIENTS' "$CONFIG_FILE")
     DERP_LOG=$(jq -r '.DERP_LOG' "$CONFIG_FILE")
+# --- 针对 CertName 的安全读取 ---
+    CERT_NAME=$(jq -r '.CertName // empty' "$CONFIG_FILE")
+
 }
 
 #--------------------------------------------
@@ -427,8 +434,8 @@ generate_derpmap_example() {
             "Name": "${RegionCodeT}_$DATE_TAG",
             "RegionID": $RegionIDT,
             "IPv4": "$server_ipv4",
-            "DERPPort": $derp_port,
-            "InsecureForTests": true
+            "DERPPort": $derp_port,            
+            "CertName": "$CERT_NAME"
           }
         ]
       }
@@ -436,10 +443,11 @@ generate_derpmap_example() {
   }
 }
 EOF
-
+#	"InsecureForTests": true
     echo -e "${BLUE}当前主机公网IP: ${GREEN}$server_ipv4${RESET}"
     echo -e "${BLUE}derp服务端口为: ${GREEN}$derp_port${RED} <-----请注意开放NAT端口!!${RESET}"
     echo -e "${BLUE}请修改 https://login.tailscale.com/admin/acls/file 配置${RESET}"
+    echo -e "${YELLOW}\"CertName\": \"$CERT_NAME\",${RESET}<<注意保留逗号"
     echo -e "${GREEN}✅ 已生成案例文件: $WORKDIR/derpmap_example.json${RESET}"
 }
 
@@ -457,8 +465,44 @@ start_or_restart_derper() {
     exit_derper >/dev/null 2>&1
     sleep 2
 
-    echo -e "${BLUE}生成证书并启动 derper...${RESET}"
+    echo -e "${BLUE}生成证书...${RESET}"
+    # 调用 build_cert.sh 生成证书
+    # 证书文件名为 $DERP_HOST.crt
     sh "$BUILD_CERT" "$DERP_HOST" "$DERP_CERTS" "$WORKDIR/app/san.conf"
+    
+    # --- ✨ 新增步骤：计算证书指纹 (CertName) 并更新配置 ---
+    
+    local CERT_PATH="$DERP_CERTS/$DERP_HOST.crt"
+
+    if [ ! -f "$CERT_PATH" ]; then
+        echo -e "${RED}❌ 错误：未找到证书文件 $CERT_PATH，无法计算 CertName。${RESET}"
+        return 1
+    fi
+    
+    echo -e "${BLUE}计算证书 SHA256 指纹 (CertName)...${RESET}"
+    
+    # 计算 SHA256 指纹：
+    # 1. openssl x509 -in ... -outform DER：将证书转换为 DER 格式
+    # 2. sha256sum：计算 SHA256 校验和
+    # 3. cut -d ' ' -f 1：提取校验和字符串
+    local RAW_SHA256=$(openssl x509 -in "$CERT_PATH" -outform DER 2>/dev/null | sha256sum | cut -d ' ' -f 1)
+    
+    if [ -z "$RAW_SHA256" ]; then
+        echo -e "${RED}❌ 错误：计算 SHA256 失败，请检查 openssl/sha256sum 命令。${RESET}"
+        return 1
+    fi
+    
+    local CERT_NAME="sha256-raw:$RAW_SHA256"
+    echo -e "${GREEN}✅ CertName 已生成: ${YELLOW}$CERT_NAME${RESET}"
+
+    # 使用 jq 将 CertName 插入到 config.json 中
+    # 注意：CertName 是一个字符串，所以不需要使用 tonumber
+    jq --arg certname "$CERT_NAME" \
+       '.CertName = $certname' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+    
+    # --- 步骤结束 ---
+
+    echo -e "${BLUE}启动 derper...${RESET}"
 
     # 记录启动时间
     echo "=== derper 启动于 $(date) ===" >> "$DERP_LOG"
@@ -704,7 +748,7 @@ generate_config() {
     sed -i 's|//.*$||' "$CONFIG_FILE"
     
     # 2. 使用 jq 更新 DERP_ADDR 和 DERP_HOST
-    # 注意: jq 的 tostring 是必须的，因为 DERP_ADDR 在模板中是 ":47100" 这种格式。
+    # 注意: jq 的 tostring 是必须的
     # 更好的方式是直接将 DERP_ADDR 设置为 "$port"
     jq --arg port "$DERP_PORT" \
        --arg host "$DERP_HOST" \
