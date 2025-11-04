@@ -57,18 +57,21 @@ https://login.tailscale.com/admin/acls/file
             "931": {                    // AAA 一般跟下面一样 注意多个自定义 derper 的 RegionID 不能一样 
                 "RegionID": 931,        // tailscale 900-999 是保留给自定义 derper 的，tag--A
                 "RegionCode": "SHK",    // 随便填 一般3个字母(英文数字ascii)
-                "RegionName": "wy_CN2",  // 随便填 方便识(英文数字ascii)
+                "RegionName": "wy_CN2",  // 随便填 方便识(中英数字ascii)
                 "Nodes": [              // 建议一个regionsid+一个node，不要多个nodes
                     {
-                        "Name": "wyCOoOC",               // 随便填 方便识别(英文数字ascii)
+                        "Name": "wyCOoOC",               // 随便填 方便识别(中英数字ascii)
                         "RegionID": 931,            // 与tag--A保持一致，
                         "IPv4": "123.1.1.1",        // 自定义derper服务器公网ip 比如 123.1.1.1
-                        "DERPPort": 30000,          // 刚刚设置的端口 比如30000
-                        "InsecureForTests": true    // 如果是自签证书默认true，小白保留这个。
+                        "DERPPort": 30000,          // 刚刚设置的端口 比如30000 TCP
+                        "CertName": "sha256-raw:c1c3XXXXX",      // 一长串crt文件的哈希值，根据提示复制确保安全
+                        "STUNPort": 13478             // 3478 注意是UDP！
+                        //"InsecureForTests": true    // ----------这行删掉，已经用sha256保证证书安全了
+                        //hostname 有些地方建议写，其实官方已经支持，不写hostname，支持自签方式。
                     }
                 ]
             },   //<<--------------------------------注意这个regions之间的逗号（json语法）
-            "933": {                                // 这是第二个derper的示例
+            "933": {                                // 这是第二个derper的示例以此类推
                 "RegionID": 933,
                 "RegionCode": "AHK",
                 "RegionName": "KAHK",
@@ -77,8 +80,8 @@ https://login.tailscale.com/admin/acls/file
                         "Name": "wyCN22",
                         "RegionID": 933,
                         "IPv4": "321.1.1.1",
-                        "DERPPort": 30001,
-                        "InsecureForTests": true
+                        "DERPPort": 30001
+                        //"InsecureForTests": true
                     }
                 ]
             }
