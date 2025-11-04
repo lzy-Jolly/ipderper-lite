@@ -5,6 +5,7 @@ set -e
 
 DEST_DIR="/etc/ipderperd"
 APP_DIR="$DEST_DIR/app"
+LOG_DIR="$DEST_DIR/logs"
 LINK="/usr/local/bin/ipderper"
 
 GITHUB_REPO="lzy-Jolly/ipderper-lite"
@@ -59,6 +60,7 @@ fi
 # 创建安装目录和app目录
 mkdir -p "$DEST_DIR"
 mkdir -p "$APP_DIR"
+mkdir -p "$LOG_DIR"
 chmod 755 "$DEST_DIR"
 
 # --- 👇 修改后的下载逻辑 START 👇 ---
